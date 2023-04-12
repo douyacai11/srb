@@ -1,0 +1,129 @@
+0.环境搭建:
+    mysql5.7不能加cj  也需要设置&useSSL=false
+    driver-class-name: com.mysql.jdbc.Driver
+       url: jdbc:mysql://47.108.222.62:3306/db2023_srb_core?serverTimezone=GMT%2B8&characterEncoding=utf-8&useSSL=false
+       username: root
+       password: 123456
+
+1.定义统一返回结果:
+   使用枚举类（用来定义枚举 需要+lombok的@AllArgsConstructor注解 + 实体类型结合 作为返回值:可以设置更详细的参数
+
+
+2.controller中的业务逻辑:
+   当方法的返回值是list/对象的时候  可以使用message(key,value)的方法返回改对象
+   即:  IntegralGrade integralGrade = integralGradeService.getById(id);
+             if (integralGrade!=null){
+                 return R.ok().data("record",integralGrade);}
+
+
+
+3.了解了Swagger2
+
+
+
+4.学习使用异常处理
+4.1普通异常处理:
+1、添加依赖 spring-jdbc
+2.添加异常处理普通方法  在 UnifiedExceptionHandler
+  //普通异常处理
+    @ExceptionHandler(value = Exception.class)
+    public R handleException(Exception e){
+        log.error(e.getMessage(),e);
+        return R.error();
+    }
+
+
+
+4.2自定义异常处理:
+1、添加依赖 spring-jdbc
+2.添加异常处理方法  在 UnifiedExceptionHandler(统一处理所有异常的 中添加BusinessException方法
+3.如果需要创建自定义异常 在BusinessException自定义 状态码 +错误消息+有参构造方法
+eg: if (integralGrade.getBorrowAmount()==null){
+               //通过自定义类型的异常类 抛出 借款额度不合法的枚举
+               throw  new BusinessException(ResponseEnum.BORROW_AMOUNT_NULL_ERROR);
+           }
+           ->是先走UnifiedExceptionHandler方法查找 BusinessException方法 ，然后进入BusinessException方法
+           然后参数是ResponseEnum.BORROW_AMOUNT_NULL_ERROR ，即进入方法的枚举有参构造，返回自定义的错误消息
+
+
+
+
+5.Excel文件导入到数据库:
+p164-165
+
+5.1先前端上传要读取的excel文件 前端发起请求给controller (前端调用后端的import接口
+
+5.2controller 编写接口 file获取inputstream 传递给service
+
+ InputStream inputStream = file.getInputStream();
+            dictService.importData(inputStream);
+
+5.3 service层执行的是监听器ExcelDictDTOListener的创建，来执行Excel的读功能，把获取的数据封装到ExcelDictDTO实体中,
+
+  EasyExcel.read(inputStream, ExcelDictDTO.class, new ExcelDictDTOListener(baseMapper)).sheet().doRead();
+
+   具体封装过程是在监听器内部实现的,只需要把监听器中封装好的data数据取出来 ，再调用mapper层的方法save至数据库中
+
+
+5.4 save方法的实现: 如果数据过多 先存在一个集合中 指定存入数据到达x条 就存入list到数据库中
+
+
+ @Resource
+    DictService dictService;
+
+    @ApiOperation("Excel数据的批量导入")
+    @PostMapping("import")
+    public R batchImport(
+            @ApiParam(value = "Excel数据字典文件",required = true)
+            @RequestParam("file")MultipartFile file)
+    {
+        try {
+            InputStream inputStream = file.getInputStream();
+            dictService.importData(inputStream);
+
+            return R.ok().message("数据字典数据批量导入成功");
+
+        } catch (Exception e) {
+            throw new BusinessException(ResponseEnum.UPLOAD_ERROR,e);
+        }
+    }
+
+
+    6.把一种类型转变为另外一种类型的方法: BeanUtils.copyProperties(要改变的类型,改变后的类型)
+
+     public List<ExcelDictDTO> listDictData() {
+            List<Dict> dictList = baseMapper.selectList(null);
+
+            //把将Dict列表转换成ExcelDictDTO列表:先创建ExcelDictDTO列表
+
+            ArrayList<ExcelDictDTO> excelDictDTOList = new ArrayList<>(dictList.size());
+            dictList.forEach(dict -> {
+
+                ExcelDictDTO excelDictDTO = new ExcelDictDTO();
+                BeanUtils.copyProperties(dict, excelDictDTO);
+                excelDictDTOList.add(excelDictDTO);
+            });
+            return excelDictDTOList;
+            }
+
+
+7.当列表中有父子 两层关系的时候 :定义接口 根据 parentId(父节点) 获取 父+子 节点列表
+
+  7.1 在controller中定义接口方法  public R listByParentId(@PathVariable Long parentId){
+       ----根据parentId获取子节点列表
+            List<Dict> dictList= dictService.listByParentId(parentId);
+                  return R.ok().data("dictList",dictList);
+      }
+  7.1 在service层中定义辅助方法  先判断父节点下面是否有子节点,再把当前节点下的所有数据取出 (顶层取顶层 / 顶层取二层
+       -----根据父节点id来查询信息  即条件查询
+         QueryWrapper<Dict> wrapper = new QueryWrapper<>();
+              wrapper.eq("parent_id",parentId);
+              List<Dict> dictList = baseMapper.selectList(wrapper);
+
+              //填充hasChildren字段
+              dictList.forEach(dict -> {
+                  //判断当前节点是否有子节点,找到当前dict的下级有没有子节点
+                  boolean hasChildren = this.hasChildren(dict.getId());
+                  dict.setHasChildren(hasChildren);
+              });
+              return  dictList;
