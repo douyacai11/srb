@@ -127,3 +127,65 @@ p164-165
                   dict.setHasChildren(hasChildren);
               });
               return  dictList;
+
+
+8.数据整合在redis中 适合于: 频繁访问的数据+数据不会经常更新的数据
+   存入redis 的方法就是在impl业务层 增加redis的操作:
+
+  /**
+         * 1.先查询redis中是否存在数据列表
+         *   redisTemplate.opsForValue().get("srb:core:dictList:" + parentId);
+         * 2.1如果存在 则从redis中直接返回数据列表
+         *     return dictList;
+         * 2.2不存在 就查询数据库 将数据存入redis 再返回数据列表
+
+         * */
+
+
+9.发短信的逻辑
+  1.先校验手机号是否为空 再校验手机号的合法性
+  2.给用户发送验证码的同时 需要同时存入验证码到redis中
+
+
+10.前后端相连接的逻辑：
+   1.写好后端的接口 即controller定义的路径及其方法内容 eg：发短信
+   2.前端: 点击‘发送验证码’ 即 发送aj克斯请求: 即 访问后端定义好的接口链接，then后面的是发送链接返回给前端的内容
+                                this.$axios
+                                      .$get('http://localhost:8120/api/sms/send/' + this.userInfo.mobile)
+                                      .then((Response) => {
+                                        this.$message.success(Response.message)
+                                      })
+                                  },
+
+11.注册register用户的逻辑:
+   填好了前端的表单,后端主要是用来收集表单的信息的,
+   然后先  -- 发送短信 --获取验证码  --后端校验验证码(手机号 密码，是否为空
+      再  实现插入功能 （先在数据库中查询手机号是否注册过了   再 往数据库中插入信息
+
+
+12.登录login的逻辑实现:  生成token令牌,即要创建一个新的实体,要有token属性来保存
+       //0.拿到前端输入的表单信息
+        //1.查询手机号是否存在, 存在就查询数据库中的userInfo信息
+         //2.1校验数据库中存入的密码和 前端输入的密码 是否正确
+          //3.生成token
+           //4.组装一个新的实体userInfoVo，返回前端
+
+
+13.多条件查询+分页page条件 来展示用户列表的功能
+       1.首先有三个查询条件,手机号+状态+userType，所以把这三个属性封装在一个新的对象 UserInfoQuery实体中
+       2. controller中编写接口 ，参数需要 分页条件(limit，page  + 查询条件(封装好的UserInfoQuery实体
+           :  public R listPage( @PathVariable  Long page,     @PathVariable Long limit , UserInfoQuery userInfoQuery
+
+       3.service层中编写具体的查询方法:
+            因为查询条件中有三个， 可以输入任意俩为空也能查的效果 所以需要QueryWrapper的重载 condition条件
+           QueryWrapper<UserInfo> userInfoQueryWrapper = new QueryWrapper<>();
+                   userInfoQueryWrapper.eq(StringUtils.isNotBlank(mobile),"mobile",mobile)
+                                       .eq(status!=null,"status",status)
+                                       .eq(userType!=null,"user_type",userType);
+
+
+
+
+
+
+14.跨越问题是 @@GetMapping和前端的 method:post不对应 应该为get
