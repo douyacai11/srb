@@ -25,4 +25,8 @@ public interface UserInfoService extends IService<UserInfo> {
 
 
     IPage<UserInfo> listPage(Page<UserInfo> pageParam, UserInfoQuery userInfoQuery);
+
+    void lock(Long id, Integer status);
+
+    boolean checkMobile(String mobile);
 }

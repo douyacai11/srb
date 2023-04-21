@@ -34,7 +34,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/admin/core/dict")
 @Slf4j
-@CrossOrigin
+//@CrossOrigin
 public class AdminDictController {
 
     @Resource
@@ -83,8 +83,8 @@ public class AdminDictController {
             @ApiParam(value = "上级节点id", required = true)
             @PathVariable Long parentId){
 
-        List<Dict> dictList= dictService.listByParentId(parentId);
-        return R.ok().data("dictList",dictList);
+        List<Dict> list= dictService.listByParentId(parentId);
+        return R.ok().data("list",list);
 
     }
 

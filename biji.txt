@@ -1,5 +1,5 @@
 0.环境搭建:
-    mysql5.7不能加cj  也需要设置&useSSL=false
+    mysql5.1.47不能加cj  也需要设置&useSSL=false
     driver-class-name: com.mysql.jdbc.Driver
        url: jdbc:mysql://47.108.222.62:3306/db2023_srb_core?serverTimezone=GMT%2B8&characterEncoding=utf-8&useSSL=false
        username: root
@@ -188,4 +188,62 @@ p164-165
 
 
 
-14.跨越问题是 @@GetMapping和前端的 method:post不对应 应该为get
+
+14.跨越问题是 @@GetMapping和前端的 method:post不对应 应该为get.
+
+15.根据用户id更改用户信息中的状态:
+           service接口定义方法: void lock(Long id, Integer status);
+                    实现方法:  UserInfo userInfo = new UserInfo();
+                                 userInfo.setId(id);
+                                 userInfo.setStatus(status);
+                                 baseMapper.updateById(userInfo);
+
+16.根据用户id查询前50条登录记录
+     service 接口定义方法: List<UserLoginRecord> listTop50(Long userId);
+             实现方法:   QueryWrapper<UserLoginRecord> wrapper = new QueryWrapper<>();
+
+                           //查询条件
+                           wrapper.eq("user_id",userId)
+                                  .orderByDesc("id")
+                                  .last("limit 50");
+
+                        return   List<UserLoginRecord> list = baseMapper.selectList(wrapper);
+
+
+
+
+1.账户绑定两部:
+  01.把尚融宝的账户信息 提交 到 汇付宝中
+    (在汇付宝那边还没有数据的时候
+    --- 先在尚融宝中查看数据 如果是第一次提交 就先 插入 信息到尚融宝的数据库中
+                         如果是第二次提交 就先 更新 新的信息到尚融宝的数据库中
+
+    ---点击确定提交: 同步数据到 汇付宝，同时汇付宝就会发起请求到尚融宝中的接口 来 更新user_bind和user_info表
+
+  02.根据汇付宝的信息 来修改尚融宝中user_inf和user_bind缺少的信息
+
+
+2.表单数据展示+提交:
+   把表单封装成一个新的VO实体型, controller参数是 实体型+ HttpServletRequest
+   HttpServletRequest 是从请求头中拿到token,再通过Jwt获取当前登录的用户id，
+
+      String token = request.getHeader("token");
+      Long userId = JwtUtils.getUserId(token);
+
+   再定义一个保存信息的方法，把表单的信息保存
+
+3.获取借款人状态:即获取数据库中的某一个字段的值
+   它的QueryWrapper是这样写的:
+      wrapper.select("status").eq("user_id",userId);
+     根据user_id 查询Borrower表中的status字段的值
+
+
+4.分页查询的主要步骤:先new Page对象 ，方法的返回值必须是IPage
+    1. Page<Borrower> pageParam = new Page<>(page,limit);
+    2.IPage<Borrower> pageModel = borrowerService.listPage(pageParam,keyword);
+  3.模糊查询SELECT COUNT(*) FROM borrower WHERE  (name LIKE ? OR id_card LIKE ? OR mobile LIKE ?)
+   的QueryWrapper写法
+                      wrapper.like("name", keyword)
+                        .or().like("id_card", keyword)
+                        .or().like("mobile", keyword)
+                        .orderByDesc("id");

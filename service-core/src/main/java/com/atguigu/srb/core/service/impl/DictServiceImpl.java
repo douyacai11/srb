@@ -36,6 +36,10 @@ public class DictServiceImpl extends ServiceImpl<DictMapper, Dict> implements Di
     @Resource
     private RedisTemplate redisTemplate;
 
+
+    @Resource
+    DictMapper dictMapper;
+
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void importData(InputStream inputStream) {  //读取excel文件
@@ -60,55 +64,55 @@ public class DictServiceImpl extends ServiceImpl<DictMapper, Dict> implements Di
     }
 
 
+    /**
+     * 1.先查询redis中是否存在数据列表
+     *
+     * 2.1如果存在 则从redis中直接返回数据列表
+     *
+     * 2.2不存在 就查询数据库 将数据存入redis 再返回数据列表
+     * */
     //根据id查询数据字典  (设置在redis中存储和查询
     @Override
     public List<Dict> listByParentId(Long parentId) {
 
-
-        /**
-         * 1.先查询redis中是否存在数据列表
-         *
-         * 2.1如果存在 则从redis中直接返回数据列表
-         *
-         * 2.2不存在 就查询数据库 将数据存入redis 再返回数据列表
-         * */
-
+        //先查询redis中是否存在数据列表
+        List<Dict> dictList = null;
         try {
-            log.info("从redis中取出数据");
-            List<Dict> dictList = (List<Dict>) redisTemplate.opsForValue().get("srb:core:dictList:" + parentId);
-
-            if (dictList !=null){
+            dictList = (List<Dict>)redisTemplate.opsForValue().get("srb:core:dictList:" + parentId);
+            if(dictList != null){
+                log.info("从redis中取值");
                 return dictList;
             }
-
+        } catch (Exception e) {
+            log.error("redis服务器异常：" + ExceptionUtils.getStackTrace(e));//此处不抛出异常，继续执行后面的代码
         }
 
-        catch (Exception e) {
-            log.error("redis服务器异常"+ ExceptionUtils.getStackTrace(e));
-        }
-
-
-        log.info("从数据库中获取数据列表");
-        QueryWrapper<Dict> wrapper = new QueryWrapper<>();
-        wrapper.eq("parent_id",parentId);
-        List<Dict> dictList = baseMapper.selectList(wrapper);
-
-        //填充hasChildren字段
+        log.info("从数据库中取值");
+        dictList = baseMapper.selectList(new QueryWrapper<Dict>().eq("parent_id", parentId));
         dictList.forEach(dict -> {
-            //判断当前节点是否有子节点,找到当前dict的下级有没有子节点
+            //如果有子节点，则是非叶子节点
             boolean hasChildren = this.hasChildren(dict.getId());
             dict.setHasChildren(hasChildren);
         });
 
+        //将数据存入redis
         try {
-            //将数据存入redis中
-            log.info("将数据存入redis中");
-            redisTemplate.opsForValue().set("srb:core:dictList:"+parentId,dictList,5, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set("srb:core:dictList:" + parentId, dictList, 5, TimeUnit.MINUTES);
+            log.info("数据存入redis");
         } catch (Exception e) {
-            log.error("redis服务器异常"+ ExceptionUtils.getStackTrace(e));
+            log.error("redis服务器异常：" + ExceptionUtils.getStackTrace(e));//此处不抛出异常，继续执行后面的代码
         }
+        return dictList;
+    }
 
-        return  dictList;
+
+
+    @Override
+    public List<Dict> findByDictCode(String dictCode) {
+        QueryWrapper<Dict> dictQueryWrapper = new QueryWrapper<>();
+        dictQueryWrapper.eq("dict_code", dictCode);
+        Dict dict = baseMapper.selectOne(dictQueryWrapper);
+        return this.listByParentId(dict.getId());
     }
 
     /**

@@ -139,4 +139,23 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
                 .eq(userType != null, "user_type", userType);
         return baseMapper.selectPage(pageParam, userInfoQueryWrapper);
     }
+
+    //锁定和解锁状态的转变
+    @Override
+    public void lock(Long id, Integer status) {
+
+        UserInfo userInfo = new UserInfo();
+        userInfo.setId(id);
+        userInfo.setStatus(status);
+        baseMapper.updateById(userInfo);
+    }
+
+    @Override
+    public boolean checkMobile(String mobile) {
+
+        QueryWrapper<UserInfo> wrapper = new QueryWrapper<>();
+        wrapper.eq("mobile",mobile);
+        Integer count = baseMapper.selectCount(wrapper);
+        return count>0;
+    }
 }
