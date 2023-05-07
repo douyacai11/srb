@@ -2,6 +2,8 @@ package com.atguigu.srb.core.controller.admin;
 
 import com.atguigu.common.result.R;
 import com.atguigu.srb.core.pojo.entity.Borrower;
+import com.atguigu.srb.core.pojo.vo.BorrowerApprovalVO;
+import com.atguigu.srb.core.pojo.vo.BorrowerDetailVO;
 import com.atguigu.srb.core.service.BorrowerService;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -33,4 +35,29 @@ public class AdminBorrowerController {
         return R.ok().data("pageModel",pageModel);
     }
 
+
+
+
+    @ApiOperation("根据id获取借款人信息")
+    @GetMapping("/show/{id}")
+    public  R show(@PathVariable long id){
+
+        //获取封装对象:BorrowerDetailVO 返回前端
+        BorrowerDetailVO borrowerDetailVO = borrowerService.getBorrowerDetailVOById(id);
+        return  R.ok().data("borrowerDetailVO",borrowerDetailVO);
+    }
+
+
+    //额度审批的目标：
+    //(1)在user_integral表中添加积分明细
+    //(2)在user_info表中添加总积分（user_info表中的原始积分 + user_integral表中的积分明细之和 ）
+    //(3)修改borrower表的借款申请审核状态
+    //(4)修改user_info表中的借款申请审核状态
+    @ApiOperation("借款额度审批")
+    @PostMapping("/approval")
+    public R approval(@RequestBody BorrowerApprovalVO borrowerApprovalVO){
+        borrowerService.approval(borrowerApprovalVO);
+        return R.ok().message("审批完成");
+
+    }
 }

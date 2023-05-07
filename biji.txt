@@ -247,3 +247,84 @@ p164-165
                         .or().like("id_card", keyword)
                         .or().like("mobile", keyword)
                         .orderByDesc("id");
+
+5.  service常用的逻辑
+
+  5.1附件列表 根据borrower_id查询所有的borrowerAttch列表 并且转换成borrowerAttchVo列表   --》在borrowerAttch定义一个方法把List<BorrowerAttach> 转为List<BorrowerAttachVO>
+把List<BorrowerAttach> 转为List<BorrowerAttachVO>
+
+        List<BorrowerAttach> borrowerAttachList = baseMapper.selectList(wrapper);
+
+        List<BorrowerAttachVO> borrowerAttachVOList=new ArrayList<>();
+        borrowerAttachList.forEach(borrowerAttach -> {
+            BorrowerAttachVO borrowerAttachVO = new BorrowerAttachVO();
+
+            borrowerAttachVO.setImageType(borrowerAttach.getImageType());
+            borrowerAttachVO.setImageUrl(borrowerAttach.getImageUrl());
+            borrowerAttachVOList.add(borrowerAttachVO);
+        });
+
+   5.2
+
+
+6.sql语句
+           queryWrapper.le("integral_start", integral);
+           queryWrapper.ge("integral_end", integral);
+
+           ===》 integral_start <=  integral   and integral_end >=  integral
+           意思就是       integral_start   <=  integral <= integral_end
+
+
+7.当前端 传入的表单的值 正好可以和数据库对应上 就不用新封装一个实体型， 传入的对象就是可以直接 insert
+  当前端 传入的表单的值 不能和数据库对应  就需要创建一个新的Vo实体型 ,先get前端表单数据 再set进vo 还要做实体型转换才能继续下一步操作
+
+
+8.sql : selectObjs方法
+        特点：只返回第一个字段的值，注意不是行，
+    eg://根据id查询借款人审核状态的sql:
+
+       QueryWrapper<BorrowInfo> wrapper = new QueryWrapper<>();
+            wrapper.select("status").eq("user_id",userId);
+            List<Object> objects = baseMapper.selectObjs(wrapper);
+              Integer status = (Integer) objects.get(0);
+
+
+
+9.展示视图的两种方法: 创建新的VO实体 和 扩展已有对象 +Map封装
+ Map封装用于  一个表单 需要展示多个表中的内容  所以把不同表中的内容封装在一个map集合中
+
+
+
+10.复习数据字典+绑定+登录token
+
+
+
+11.根据前端传入的Vo对象  修改表中的一个字段值
+  public void approval(BorrowInfoApprovalVO borrowInfoApprovalVO) {
+        //修改借款审核的状态  --borrowInfo表
+        Long borrowInfoId = borrowInfoApprovalVO.getId();
+
+        BorrowInfo borrowInfo = baseMapper.selectById(borrowInfoId);
+
+        borrowInfo.setStatus(borrowInfoApprovalVO.getStatus());
+        baseMapper.updateById(borrowInfo);
+
+12.BO对象:是controller和service层的对象封装  一般表中没有实体型
+         只是为了数据封装好传输一点
+
+13.充值逻辑:
+  01.银行那边的账户 给user_amount表中的amount 存入金额
+  02.用户这边的账户 同步银行账户那边的表的数据 + 异步回调给银行那边响应
+    同步银行账户那边的表的数据的操作:
+       1.幂等性判断 (判断交易流水是否存在 transFlowService.isSaveTransFlow(agentBillNo);
+       2.账户处理  ( baseMapper.updateAccount(bindCode, new BigDecimal(chargeAmt), new BigDecimal(0));
+       3.增加交易流水 即增加user_TransFlow 表中的内容(
+        TransFlowBO transFlowBO = new TransFlowBO(
+                agentBillNo,
+                bindCode,
+                new BigDecimal(chargeAmt),
+                TransTypeEnum.RECHARGE,
+                "充值");
+        transFlowService.saveTransFlow(transFlowBO);
+
+

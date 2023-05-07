@@ -29,6 +29,8 @@ public class RedisTemplateTests {
 
        }
 
+
+
        @Test
        public void getDict(){
               Dict dict = (Dict)redisTemplate.opsForValue().get("dict");

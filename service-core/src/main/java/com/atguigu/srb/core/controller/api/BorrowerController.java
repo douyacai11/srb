@@ -50,9 +50,10 @@ public class BorrowerController {
     public R getBorrowerStatus(HttpServletRequest request){
 
         String token = request.getHeader("token");
+        System.out.println("token======"+token);
         Long userId = JwtUtils.getUserId(token);
 
-        Integer status=   borrowerService.getStatusByUserId(userId);
+        Integer status= borrowerService.getStatusByUserId(userId);
         return R.ok().data("borrowerStatus",status);
     }
 
